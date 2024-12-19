@@ -1,15 +1,10 @@
 package com.example.mobileapp.presentation
 
-import androidx.navigation.NavController
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.Button
 import androidx.compose.material.IconButton
 import androidx.compose.material.Text
-import androidx.compose.runtime.Composable
-import coil.compose.rememberAsyncImagePainter
-import com.example.mobileapp.R
-import com.example.mobileapp.ui.theme.Typography
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -17,69 +12,76 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-
+import androidx.navigation.NavController
+import coil.compose.rememberAsyncImagePainter
+import com.example.mobileapp.R
+import com.example.mobileapp.ui.theme.Typography
+import com.example.mobileapp.MarvelApiService
+import com.example.mobileapp.Hero
+import kotlinx.coroutines.launch
 
 @Composable
-fun HeroDetail(navController: NavController, name: String, image: String, description: String) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-    ) {
-        // Фоновая картинка героя
-        Image(
-            painter = rememberAsyncImagePainter(image),
-            contentDescription = null,
-            modifier = Modifier
-                .fillMaxSize() // Картинка растянута на весь экран
-                .align(Alignment.Center), // Картинка выравнивается по центру
-            contentScale = ContentScale.Crop // Кропим, чтобы избежать полос
-        )
+fun HeroDetail(navController: NavController, characterId: Int) {
+    val hero = remember { mutableStateOf<Hero?>(null) }
+    val coroutineScope = rememberCoroutineScope()
+    var error by remember { mutableStateOf<String?>(null) }
 
-        @Composable
-        fun BackButton(navController: NavController) {
-            IconButton(onClick = { navController.popBackStack() }) {
-                Image(
-                    painter = painterResource(id = R.drawable.baseline_arrow_back_24),
-                    contentDescription = "кнопка назад",
-                    modifier = Modifier.size(50.dp)
-                    ,
-                )
+    LaunchedEffect(characterId) {
+        coroutineScope.launch {
+            try {
+                val response = MarvelApiService.getCharacterDetails(characterId.toString())
+                hero.value = response.data.results.firstOrNull()
+            } catch (e: Exception) {
+                error = "Не удалось загрузить данные: ${e.message}"
             }
         }
-        BackButton(navController = navController)
+    }
 
-        // Имя и описание героя внизу по центру
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(15.dp)
-                .align(Alignment.BottomCenter) // Контент внизу по центру
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.align(Alignment.BottomCenter) // Выравнивание снизу по центру
-            ) {
-                // Имя героя
-                Text(
-                    text = name,
-                    style = Typography.titleLarge,
-                    color = Color.White,
-                    textAlign = TextAlign.Center,
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (error != null) {
+            Text(text = error ?: "", color = Color.Red, modifier = Modifier.padding(16.dp))
+        } else {
+            hero.value?.let { loadedHero ->
+                // Отображение изображения и информации о герое
+                Image(
+                    painter = rememberAsyncImagePainter(loadedHero.thumbnail.path + "." + loadedHero.thumbnail.extension),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+
+                // Кнопка назад
+                IconButton(onClick = { navController.popBackStack() }, modifier = Modifier.padding(16.dp)) {
+                    Image(
+                        painter = painterResource(id = R.drawable.baseline_arrow_back_24),
+                        contentDescription = "кнопка назад",
+                        modifier = Modifier.size(50.dp)
+                    )
+                }
+
+                // Текстовые данные
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
-                        .padding(bottom = 10.dp) // Отступ от текста
-                )
-
-                // Описание героя
-                Text(
-                    text = description,
-                    style = Typography.bodyLarge,
-                    color = Color.White,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(bottom = 25.dp)
-                )
+                        .align(Alignment.BottomCenter)
+                        .padding(15.dp)
+                ) {
+                    Text(
+                        text = loadedHero.name,
+                        style = Typography.bodyLarge,
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(bottom = 10.dp)
+                    )
+                    Text(
+                        text = loadedHero.description,
+                        style = Typography.titleLarge,
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(bottom = 25.dp)
+                    )
+                }
             }
         }
     }
 }
-
-

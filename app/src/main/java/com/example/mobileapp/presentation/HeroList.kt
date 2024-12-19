@@ -1,6 +1,7 @@
 package com.example.mobileapp.presentation
 
 import android.net.Uri
+import android.util.Log
 import coil.compose.rememberAsyncImagePainter
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
@@ -8,10 +9,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -22,89 +25,128 @@ import com.example.mobileapp.ui.theme.Typography
 import androidx.compose.ui.res.painterResource
 import com.example.mobileapp.R
 import com.example.mobileapp.ui.theme.*
+import com.example.mobileapp.MarvelApiService
+import com.example.mobileapp.Thumbnail
+import com.example.mobileapp.Hero
+import com.example.mobileapp.CharacterData
+import com.example.mobileapp.CharacterResponse
 import kotlin.math.absoluteValue
+
+
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.Text
+import androidx.compose.runtime.*
+import coil.compose.rememberAsyncImagePainter
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 @Composable
 fun HeroList(navController: NavController) {
-    val heroes = listOf(
-        Hero("Deadpool", "https://cdn.marvel.com/content/1x/036dpl_com_crd_01.jpg", "healing factor and big mouth"),
-        Hero("Iron Man", "https://cdn.marvel.com/content/1x/002irm_com_crd_01.jpg", "has a heart"),
-        Hero("Spider-Man", "https://cdn.marvel.com/content/1x/005smp_com_crd_01.jpg", "The great responsibility")
-    )
+    val heroes = remember { mutableStateListOf<Hero>() }
+    val coroutineScope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
+    var offset by remember { mutableStateOf(0) }
+    var isLoading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(PurpleGrey40),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Top
-    ) {
-        Image(
-            painter = painterResource(id = R.drawable.ic_logo),
-            contentDescription = "логотип марвел",
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(150.dp)
-                .padding(16.dp)
-        )
+    // Функция для загрузки героев с использованием offset
+    fun loadHeroes() {
+        if (isLoading) return // Избегаем одновременной загрузки
+        isLoading = true
+        coroutineScope.launch {
+            try {
+                val response = MarvelApiService.getCharacterList(offset)
+                if (response.data.results.isNotEmpty()) {
+                    heroes.addAll(response.data.results)
+                    offset += 10 // Увеличиваем offset для следующей подгрузки
+                } else {
+                    error = "Больше героев нет"
+                }
+            } catch (e: Exception) {
+                error = "Не удалось загрузить данные: ${e.message}"
+                Log.e("HeroList", "Ошибка загрузки данных", e)
+            } finally {
+                isLoading = false
+            }
+        }
+    }
 
+    // Первоначальная загрузка
+    LaunchedEffect(Unit) {
+        loadHeroes()
+    }
+
+    // Автоматическая подгрузка при достижении конца списка
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index == heroes.size - 1 }
+            .collect { isAtEnd ->
+                if (isAtEnd && !isLoading) loadHeroes()
+            }
+    }
+
+    if (error != null) {
         Text(
-            text = "Choose your hero",
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center,
-            color = Color.White,
-            style = Typography.bodyLarge
+            text = error ?: "",
+            color = Color.Red,
+            modifier = Modifier.padding(16.dp)
         )
-
-        val listState = rememberLazyListState()
-        val snapBehavior = rememberSnapFlingBehavior(lazyListState = listState)
-
-        Box(
+    } else {
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(vertical = 60.dp)
-                .padding(horizontal = 60.dp),
-            contentAlignment = Alignment.Center
+                .background(Color.Gray),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            LazyRow(
-                state = listState,
-                flingBehavior = snapBehavior,
-                content = {
-                    itemsIndexed(heroes) { index, hero ->
-                        val visibleItemInfo = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }
-                        val offset = visibleItemInfo?.offset?.toFloat() ?: 0f
+            Image(
+                painter = painterResource(id = R.drawable.ic_logo),
+                contentDescription = "логотип марвел",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(150.dp)
+                    .padding(16.dp)
+            )
+            Text(
+                text = "Choose your hero",
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
+                color = Color.White,
+                style = Typography.bodyLarge
+            )
+            val snapBehavior = rememberSnapFlingBehavior(lazyListState = listState)
 
-                        val translationY = (offset.absoluteValue * 0.1f).coerceIn(0f, 50f)
-                        val alpha = (1f - (offset.absoluteValue / 400f).coerceIn(0f, 1f))
-
-                        HeroCard(
-                            hero = hero,
-                            translationY = translationY,
-                            alpha = alpha
-                        ) {
-                            navController.navigate("hero_detail/${Uri.encode(hero.name)}/${Uri.encode(hero.image)}/${Uri.encode(hero.description)}")
-                        }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(vertical = 20.dp)
+                    .padding(horizontal = 20.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                LazyRow(state = listState, flingBehavior = snapBehavior) {
+                    items(heroes) { hero ->
+                        HeroCard(hero = hero, onClick = { navController.navigate("hero_detail/${hero.id}") })
                     }
                 }
-            )
+            }
         }
     }
 }
 
 @Composable
-fun HeroCard(hero: Hero, translationY: Float, alpha: Float, onClick: () -> Unit) {
+fun HeroCard(hero: Hero, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .width(300.dp)
-            .height(600.dp)
-            .graphicsLayer(
-                translationY = translationY,
-                alpha = alpha
-            )
+            .padding(8.dp)
+            .clip(RoundedCornerShape(30.dp))
+            .width(270.dp)
+            .height(500.dp)
             .clickable { onClick() }
     ) {
         Image(
-            painter = rememberAsyncImagePainter(hero.image),
+            painter = rememberAsyncImagePainter(hero.thumbnail.url),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
