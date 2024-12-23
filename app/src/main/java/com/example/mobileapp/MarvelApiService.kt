@@ -38,8 +38,8 @@ object MarvelApiService {
             @Query("apikey") apiKey: String = PUBLIC_KEY,
             @Query("ts") timestamp: String,
             @Query("hash") hash: String,
-            @Query("offset") offset: Int = 0, // Offset for pagination
-            @Query("limit") limit: Int = 1   // Limit per request
+            @Query("offset") offset: Int = 0,
+            @Query("limit") limit: Int = 100
         ): CharacterResponse
 
         @GET("characters/{characterId}")
@@ -51,13 +51,13 @@ object MarvelApiService {
         ): CharacterResponse
     }
 
-    suspend fun getCharacterList(offset: Int = 0, limit: Int = 1): CharacterResponse {
+    suspend fun getCharacterList(offset: Int = 0, limit: Int = 100): CharacterResponse {
         val timestamp = System.currentTimeMillis().toString()
         return api.getCharacters(
             timestamp = timestamp,
             hash = createHash(timestamp),
-            offset = offset,  // здесь мы передаем offset в API-запрос
-            limit = limit)    // здесь мы передаем limit в API-запрос
+            offset = offset,
+            limit = limit)
     }
 
     suspend fun getCharacterDetails(characterId: String): CharacterResponse {

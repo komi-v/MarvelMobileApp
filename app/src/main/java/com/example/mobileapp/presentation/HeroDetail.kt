@@ -4,7 +4,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.IconButton
 import androidx.compose.material.Text
-import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -16,33 +15,43 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.mobileapp.ui.theme.Typography
 import coil.compose.rememberAsyncImagePainter
 import com.example.mobileapp.R
-import com.example.mobileapp.MarvelApiService
 import kotlinx.coroutines.launch
 import androidx.navigation.NavController
 import androidx.compose.runtime.rememberCoroutineScope
-import com.example.mobileapp.Hero
+import com.example.mobileapp.HeroRepository
+import com.example.mobileapp.data.toUI
+import okhttp3.HttpUrl.Companion.toHttpUrl
 
 @Composable
-fun HeroDetail(navController: NavController, characterId: Int) {
-    val hero = remember { mutableStateOf<Hero?>(null) } // состояние для героя
-    val error = remember { mutableStateOf<String?>(null) } // состояние для ошибки
+fun HeroDetail(
+    navController: NavController,
+    characterId: Int,
+    heroRepository: HeroRepository
+) {
+    val hero = remember { mutableStateOf<Heroy?>(null) }
+    val error = remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(characterId) {
         coroutineScope.launch {
             try {
-                val response = MarvelApiService.getCharacterDetails(characterId.toString())
-                hero.value = response.data.results.firstOrNull()
+                val localHero = heroRepository.getHeroByIdFromDb(characterId)?.toUI()
+                hero.value = localHero
+
+                if (localHero == null) {
+                    val remoteHero = heroRepository.getHeroByIdFromApi(characterId)?.toUI()
+                    hero.value = remoteHero
+                }
             } catch (e: Exception) {
-                error.value = "Не удалось загрузить данные: ${e.message}" // изменяем значение через .value
+                error.value = "Не удалось загрузить данные: ${e.message}"
             }
         }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Показываем экран ошибки, если ошибка присутствует
         if (error.value != null) {
             ErrorScreen(
                 errorMessage = error.value ?: "Неизвестная ошибка",
@@ -50,8 +59,8 @@ fun HeroDetail(navController: NavController, characterId: Int) {
                     error.value = null
                     coroutineScope.launch {
                         try {
-                            val response = MarvelApiService.getCharacterDetails(characterId.toString())
-                            hero.value = response.data.results.firstOrNull()
+                            val remoteHero = heroRepository.getHeroByIdFromApi(characterId)?.toUI()
+                            hero.value = remoteHero
                         } catch (e: Exception) {
                             error.value = "Не удалось загрузить данные: ${e.message}"
                         }
@@ -59,19 +68,21 @@ fun HeroDetail(navController: NavController, characterId: Int) {
                 }
             )
         } else {
-            // Показываем информацию о герое, если данные успешно загружены
             hero.value?.let { loadedHero ->
                 Box(modifier = Modifier.fillMaxSize()) {
                     Image(
-                        painter = rememberAsyncImagePainter(loadedHero.thumbnail.url),
+                        painter = rememberAsyncImagePainter(loadedHero.img.toHttpUrl()),
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
                     )
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(
+                        onClick = { navController.popBackStack() },
+                        modifier = Modifier.padding(16.dp)
+                    ) {
                         Image(
                             painter = painterResource(id = R.drawable.baseline_arrow_back_24),
-                            contentDescription = "кнопка назад",
+                            contentDescription = "Назад",
                             modifier = Modifier.size(50.dp)
                         )
                     }
@@ -85,13 +96,15 @@ fun HeroDetail(navController: NavController, characterId: Int) {
                             text = loadedHero.name,
                             color = Color.White,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(bottom = 10.dp)
+                            modifier = Modifier.padding(bottom = 10.dp),
+                            style = Typography.titleLarge
                         )
                         Text(
                             text = loadedHero.description,
                             color = Color.White,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(bottom = 25.dp)
+                            modifier = Modifier.padding(bottom = 25.dp),
+                            style = Typography.labelSmall
                         )
                     }
                 }
@@ -99,4 +112,5 @@ fun HeroDetail(navController: NavController, characterId: Int) {
         }
     }
 }
+
 

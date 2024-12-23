@@ -8,25 +8,27 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.example.mobileapp.R
 
-val MarvelFont = FontFamily(Font(R.font.marvelfont))
+val title = FontFamily(Font(R.font.title))
+val description = FontFamily(Font(R.font.description))
 // Set of Material typography styles to start with
 val Typography = Typography(
     bodyLarge = TextStyle(
-        fontFamily = MarvelFont,
+        fontFamily = title,
         fontWeight = FontWeight.Normal,
-        fontSize = 40.sp,
-        lineHeight = 42.sp,
+        fontSize = 20.sp,
+        lineHeight = 22.sp,
         letterSpacing = 0.5.sp
     ),
     titleLarge = TextStyle(
-        fontFamily = MarvelFont,
+        color = Purple40,
+        fontFamily = title,
         fontWeight = FontWeight.Normal,
-        fontSize = 30.sp,
-        lineHeight = 33.sp,
-        letterSpacing = 0.sp
+        fontSize = 20.sp,
+        lineHeight = 23.sp,
+        letterSpacing = 0.5.sp
     ),
     labelSmall = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = description,
         fontWeight = FontWeight.Medium,
         fontSize = 11.sp,
         lineHeight = 16.sp,

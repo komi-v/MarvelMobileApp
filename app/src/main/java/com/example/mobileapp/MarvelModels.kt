@@ -1,5 +1,4 @@
 package com.example.mobileapp
-import com.squareup.moshi.Json
 
 data class CharacterResponse(
     val data: CharacterData
